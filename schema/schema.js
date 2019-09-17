@@ -37,11 +37,10 @@ const ProjectType = new GraphQLObjectType({
     program: {
       type: GraphQLString,
       resolve: json =>
-        json["DE:Wun LA Program for Innocean HMA"] ||
-        json["DE:Wun LA Program for Innocean GMA"]
-          ? json["DE:Wun LA Program for Innocean HMA"] ||
+        json["DE:Wun LA Program for Innocean HMA"]
+          ? json["DE:Wun LA Program for Innocean HMA"]
+          : json["DE:Wun LA Program for Innocean GMA"] &&
             json["DE:Wun LA Program for Innocean GMA"]
-          : ""
     },
     expireDate: {
       type: GraphQLString,

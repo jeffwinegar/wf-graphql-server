@@ -1,5 +1,6 @@
 const graphql = require("graphql");
 const fetch = require("node-fetch");
+// const DataLoader = require("dataloader");
 
 require("dotenv").config();
 
@@ -10,17 +11,79 @@ const {
   GraphQLString
 } = graphql;
 
-const BASE_URL = "http://localhost:4001";
-// const BASE_URL = "https://wunderman.my.workfront.com/attask/api/v10.0";
-// const API_KEY = process.env.WF_API_KEY;
-// const COMPANY_ID = process.env.WF_COMPANY_ID;
+// const DEV_BASE_URL = "http://localhost:4001";
+const BASE_URL = "https://wunderman.my.workfront.com/attask/api/v10.0";
+const API_KEY = process.env.WF_API_KEY;
+const COMPANY_ID = process.env.WF_COMPANY_ID;
 
 const fetchRoleName = async id => {
-  // /role/?ID=${id}&fields=name&apiKey=${API_KEY}
-  const response = await fetch(`${BASE_URL}/roles?ID=${id}`);
-  const json = await response.json();
+  // /roles?ID=${id}
+  try {
+    const response = await fetch(
+      `${BASE_URL}/role/?ID=${id}&fields=name&apiKey=${API_KEY}`
+    );
+    const json = await response.json();
 
-  return json[0].name;
+    return json.data.name;
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+const fetchTask = async id => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/task/search?projectID=${id}&fields=projectID,roleID,DE:Wun%20Standard%20|%20Estimate%20Task,workRequired&$$LIMIT=2000&apiKey=${API_KEY}`
+    );
+    const json = await response.json();
+
+    /* Filters out tasks that do not have 
+       DE:Wun Standard | Estimate Task : Yes */
+    return json.data.filter(
+      task =>
+        task["DE:Wun Standard | Estimate Task"] &&
+        task["DE:Wun Standard | Estimate Task"] === "Yes" &&
+        task.roleID
+    );
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+const fetchHours = async id => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/hour/search?projectID=${id}&fields=projectID,roleID,hours&$$LIMIT=2000&apiKey=${API_KEY}`
+    );
+    const json = await response.json();
+
+    /* Combines logged hours into an array of roles 
+       with total hoursLogged for each role */
+    const seen = new Map();
+
+    const totalHoursLoggedbyRole = json.data.filter(hour => {
+      let prev;
+
+      if (seen.hasOwnProperty(hour.roleID)) {
+        prev = seen[hour.roleID];
+        prev.hours.push(hour.hours);
+
+        return false;
+      }
+
+      if (!Array.isArray(hour.hours)) {
+        hour.hours = [hour.hours];
+      }
+
+      seen[hour.roleID] = hour;
+
+      return true;
+    });
+
+    return totalHoursLoggedbyRole;
+  } catch (err) {
+    console.log(err);
+  }
 };
 
 const ProjectType = new GraphQLObjectType({
@@ -48,57 +111,11 @@ const ProjectType = new GraphQLObjectType({
     },
     tasks: {
       type: new GraphQLList(TaskType),
-      resolve: async parent => {
-        // /task/search?projectID=${parent.ID}&fields=projectID,roleID,DE:Wun%20Standard%20|%20Estimate%20Task,workRequired&$$LIMIT=2000&apiKey=${API_KEY}
-        const response = await fetch(
-          `${BASE_URL}/tasks?projectID=${parent.ID}`
-        );
-        const json = await response.json();
-
-        /* Filters out tasks that do not have 
-           DE:Wun Standard | Estimate Task : Yes */
-        return json.filter(
-          task =>
-            task["DE:Wun Standard | Estimate Task"] &&
-            task["DE:Wun Standard | Estimate Task"] === "Yes" &&
-            task.roleID
-        );
-      }
+      resolve: parent => fetchTask(parent.ID)
     },
     hours: {
       type: new GraphQLList(HourType),
-      resolve: async parent => {
-        // /hour/search?projectID=${parent.ID}&fields=projectID,roleID,hours&$$LIMIT=2000&apiKey=${API_KEY}
-        const response = await fetch(
-          `${BASE_URL}/hours?projectID=${parent.ID}`
-        );
-        const json = await response.json();
-
-        /* Combines logged hours into an array of roles 
-           with total hoursLogged for each role */
-        const seen = new Map();
-
-        const totalHoursLoggedbyRole = json.filter(hour => {
-          let prev;
-
-          if (seen.hasOwnProperty(hour.roleID)) {
-            prev = seen[hour.roleID];
-            prev.hours.push(hour.hours);
-
-            return false;
-          }
-
-          if (!Array.isArray(hour.hours)) {
-            hour.hours = [hour.hours];
-          }
-
-          seen[hour.roleID] = hour;
-
-          return true;
-        });
-
-        return totalHoursLoggedbyRole;
-      }
+      resolve: parent => fetchHours(parent.ID)
     }
   })
 });
@@ -125,7 +142,7 @@ const TaskType = new GraphQLObjectType({
     },
     hoursScoped: {
       type: GraphQLString,
-      resolve: json => json.workRequired / 60
+      resolve: json => (json.workRequired ? json.workRequired / 60 : 0)
     }
   })
 });
@@ -162,17 +179,33 @@ const RootQuery = new GraphQLObjectType({
       type: ProjectType,
       args: { id: { type: GraphQLString } },
       resolve: async (_, args) => {
-        // /proj/${args.id}?fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&apiKey=${API_KEY}
-        const response = await fetch(`${BASE_URL}/projects/${args.id}`);
-        return response.json();
+        // /projects/${args.id}
+        try {
+          const response = await fetch(
+            `${BASE_URL}/proj/${args.id}?fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&apiKey=${API_KEY}`
+          );
+          const json = await response.json();
+
+          return json.data;
+        } catch (err) {
+          console.log(err);
+        }
       }
     },
     projects: {
       type: new GraphQLList(ProjectType),
       resolve: async () => {
-        // /proj/search?companyID=${COMPANY_ID}&status=CUR&plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte&fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&$$LIMIT=2000&apiKey=${API_KEY}
-        const response = await fetch(`${BASE_URL}/projects/`);
-        return response.json();
+        // /projects/   &plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte
+        try {
+          const response = await fetch(
+            `${BASE_URL}/proj/search?companyID=${COMPANY_ID}&status=CUR&fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&$$LIMIT=2000&apiKey=${API_KEY}`
+          );
+          const json = await response.json();
+
+          return json.data;
+        } catch (err) {
+          console.log(err);
+        }
       }
     }
   }

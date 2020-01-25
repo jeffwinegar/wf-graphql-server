@@ -130,7 +130,7 @@ const TaskType = new GraphQLObjectType({
     role: {
       type: GraphQLString,
       resolve: parent =>
-        parent.roleID ? fetchRoleName(parent.roleID) : `*${parent.name}`
+        parent.roleID ? fetchRoleName(parent.roleID) : `${parent.name}`
     },
     projectID: {
       type: GraphQLString,
@@ -195,10 +195,10 @@ const RootQuery = new GraphQLObjectType({
     projects: {
       type: new GraphQLList(ProjectType),
       resolve: async () => {
-        // /projects/   &plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte
+        // /projects/
         try {
           const response = await fetch(
-            `${BASE_URL}/proj/search?companyID=${COMPANY_ID}&status=CUR&fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&$$LIMIT=2000&apiKey=${API_KEY}`
+            `${BASE_URL}/proj/search?companyID=${COMPANY_ID}&status=CUR&plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte&fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&$$LIMIT=2000&apiKey=${API_KEY}`
           );
           const json = await response.json();
 

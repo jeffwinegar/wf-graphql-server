@@ -1,6 +1,5 @@
 const graphql = require("graphql");
 const fetch = require("node-fetch");
-// const DataLoader = require("dataloader");
 
 require("dotenv").config();
 
@@ -16,76 +15,6 @@ const BASE_URL = "https://wunderman.my.workfront.com/attask/api/v10.0";
 const API_KEY = process.env.WF_API_KEY;
 const COMPANY_ID = process.env.WF_COMPANY_ID;
 
-const fetchRoleName = async id => {
-  // /roles?ID=${id}
-  try {
-    const response = await fetch(
-      `${BASE_URL}/role/?ID=${id}&fields=name&apiKey=${API_KEY}`
-    );
-    const json = await response.json();
-
-    return json.data.name;
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-const fetchTask = async id => {
-  try {
-    const response = await fetch(
-      `${BASE_URL}/task/search?projectID=${id}&fields=projectID,roleID,DE:Wun%20Standard%20|%20Estimate%20Task,workRequired&$$LIMIT=2000&apiKey=${API_KEY}`
-    );
-    const json = await response.json();
-
-    /* Filters out tasks that do not have 
-       DE:Wun Standard | Estimate Task : Yes */
-    return json.data.filter(
-      task =>
-        task["DE:Wun Standard | Estimate Task"] &&
-        task["DE:Wun Standard | Estimate Task"] === "Yes" &&
-        task.roleID
-    );
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-const fetchHours = async id => {
-  try {
-    const response = await fetch(
-      `${BASE_URL}/hour/search?projectID=${id}&fields=projectID,roleID,hours&$$LIMIT=2000&apiKey=${API_KEY}`
-    );
-    const json = await response.json();
-
-    /* Combines logged hours into an array of roles 
-       with total hoursLogged for each role */
-    const seen = new Map();
-
-    const totalHoursLoggedbyRole = json.data.filter(hour => {
-      let prev;
-
-      if (seen.hasOwnProperty(hour.roleID)) {
-        prev = seen[hour.roleID];
-        prev.hours.push(hour.hours);
-
-        return false;
-      }
-
-      if (!Array.isArray(hour.hours)) {
-        hour.hours = [hour.hours];
-      }
-
-      seen[hour.roleID] = hour;
-
-      return true;
-    });
-
-    return totalHoursLoggedbyRole;
-  } catch (err) {
-    console.log(err);
-  }
-};
-
 const ProjectType = new GraphQLObjectType({
   name: "Project",
   fields: () => ({
@@ -96,6 +25,10 @@ const ProjectType = new GraphQLObjectType({
     name: {
       type: GraphQLString,
       resolve: json => json.name
+    },
+    client: {
+      type: GraphQLString,
+      resolve: json => json["DE:Wun LA | Client / Portfolio"]
     },
     program: {
       type: GraphQLString,
@@ -111,11 +44,19 @@ const ProjectType = new GraphQLObjectType({
     },
     tasks: {
       type: new GraphQLList(TaskType),
-      resolve: parent => fetchTask(parent.ID)
+      resolve: (parent, __, context) => {
+        const ids = parent.tasks.map(id => id.ID);
+
+        return context.taskLoader.loadMany(ids);
+      }
     },
     hours: {
       type: new GraphQLList(HourType),
-      resolve: parent => fetchHours(parent.ID)
+      resolve: (parent, __, context) => {
+        const ids = parent.hours.map(id => id.ID);
+
+        return context.hoursLoader.loadMany(ids);
+      }
     }
   })
 });
@@ -130,7 +71,7 @@ const TaskType = new GraphQLObjectType({
     role: {
       type: GraphQLString,
       resolve: parent =>
-        parent.roleID ? fetchRoleName(parent.roleID) : `${parent.name}`
+        !!parent.role || !!parent.roleID ? parent.role.name : `**${parent.name}`
     },
     projectID: {
       type: GraphQLString,
@@ -156,7 +97,7 @@ const HourType = new GraphQLObjectType({
     },
     role: {
       type: GraphQLString,
-      resolve: parent => fetchRoleName(parent.roleID)
+      resolve: parent => parent.role.name
     },
     roleID: {
       type: GraphQLString,
@@ -182,7 +123,7 @@ const RootQuery = new GraphQLObjectType({
         // /projects/${args.id}
         try {
           const response = await fetch(
-            `${BASE_URL}/proj/${args.id}?fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&apiKey=${API_KEY}`
+            `${BASE_URL}/proj/${args.id}?fields=DE:Wun%20LA%20|%20Client%20/%20Portfolio,DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate,tasks,hours&apiKey=${API_KEY}`
           );
           const json = await response.json();
 
@@ -198,7 +139,7 @@ const RootQuery = new GraphQLObjectType({
         // /projects/
         try {
           const response = await fetch(
-            `${BASE_URL}/proj/search?companyID=${COMPANY_ID}&status=CUR&plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte&fields=DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate&$$LIMIT=2000&apiKey=${API_KEY}`
+            `${BASE_URL}/proj/search?companyID=${COMPANY_ID}&status=CUR&plannedCompletionDate=$$TODAY&plannedCompletionDate_Mod=gte&fields=DE:Wun%20LA%20|%20Client%20/%20Portfolio,DE:Wun%20LA%20Program%20for%20Innocean%20HMA,DE:Wun%20LA%20Program%20for%20Innocean%20GMA,plannedCompletionDate,tasks,hours&$$LIMIT=2000&apiKey=${API_KEY}`
           );
           const json = await response.json();
 

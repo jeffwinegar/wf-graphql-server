@@ -7,7 +7,7 @@ const {
   GraphQLObjectType,
   GraphQLSchema,
   GraphQLList,
-  GraphQLString
+  GraphQLString,
 } = graphql;
 
 // const DEV_BASE_URL = "http://localhost:4001";
@@ -20,45 +20,45 @@ const ProjectType = new GraphQLObjectType({
   fields: () => ({
     id: {
       type: GraphQLString,
-      resolve: json => json.ID
+      resolve: (json) => json.ID,
     },
     name: {
       type: GraphQLString,
-      resolve: json => json.name
+      resolve: (json) => json.name,
     },
     client: {
       type: GraphQLString,
-      resolve: json => json["DE:Wun LA | Client / Portfolio"]
+      resolve: (json) => json["DE:Wun LA | Client / Portfolio"],
     },
     program: {
       type: GraphQLString,
-      resolve: json =>
+      resolve: (json) =>
         json["DE:Wun LA Program for Innocean HMA"]
           ? json["DE:Wun LA Program for Innocean HMA"]
           : json["DE:Wun LA Program for Innocean GMA"] &&
-            json["DE:Wun LA Program for Innocean GMA"]
+            json["DE:Wun LA Program for Innocean GMA"],
     },
     expireDate: {
       type: GraphQLString,
-      resolve: json => json.plannedCompletionDate
+      resolve: (json) => json.plannedCompletionDate,
     },
     tasks: {
       type: new GraphQLList(TaskType),
       resolve: (parent, __, context) => {
-        const ids = parent.tasks.map(id => id.ID);
+        const ids = parent.tasks.map((id) => id.ID);
 
         return context.taskLoader.loadMany(ids);
-      }
+      },
     },
     hours: {
       type: new GraphQLList(HourType),
       resolve: (parent, __, context) => {
-        const ids = parent.hours.map(id => id.ID);
+        const ids = parent.hours.map((id) => id.ID);
 
         return context.hoursLoader.loadMany(ids);
-      }
-    }
-  })
+      },
+    },
+  }),
 });
 
 const TaskType = new GraphQLObjectType({
@@ -66,26 +66,28 @@ const TaskType = new GraphQLObjectType({
   fields: () => ({
     id: {
       type: GraphQLString,
-      resolve: json => json.ID
+      resolve: (json) => json.ID,
     },
     role: {
       type: GraphQLString,
-      resolve: parent =>
-        !!parent.role || !!parent.roleID ? parent.role.name : `**${parent.name}`
+      resolve: (parent) =>
+        !!parent.role || !!parent.roleID
+          ? parent.role.name
+          : `**${parent.name}`,
     },
     projectID: {
       type: GraphQLString,
-      resolve: json => json.projectID
+      resolve: (json) => json.projectID,
     },
     roleID: {
       type: GraphQLString,
-      resolve: json => json.roleID
+      resolve: (json) => json.roleID,
     },
     hoursScoped: {
       type: GraphQLString,
-      resolve: json => (json.workRequired ? json.workRequired / 60 : 0)
-    }
-  })
+      resolve: (json) => (json.workRequired ? json.workRequired / 60 : 0),
+    },
+  }),
 });
 
 const HourType = new GraphQLObjectType({
@@ -93,24 +95,24 @@ const HourType = new GraphQLObjectType({
   fields: () => ({
     id: {
       type: GraphQLString,
-      resolve: json => json.ID
+      resolve: (json) => json.ID,
     },
     role: {
       type: GraphQLString,
-      resolve: parent => parent.role.name
+      resolve: (parent) => parent.role.name,
     },
     roleID: {
       type: GraphQLString,
-      resolve: json => json.roleID
+      resolve: (json) => json.roleID,
     },
     hoursLogged: {
       type: GraphQLString,
-      resolve: json =>
+      resolve: (json) =>
         Array.isArray(json.hours)
           ? json.hours.reduce((acc, cur) => acc + cur, 0)
-          : json.hours
-    }
-  })
+          : json.hours,
+    },
+  }),
 });
 
 const RootQuery = new GraphQLObjectType({
@@ -131,7 +133,7 @@ const RootQuery = new GraphQLObjectType({
         } catch (err) {
           console.log(err);
         }
-      }
+      },
     },
     projects: {
       type: new GraphQLList(ProjectType),
@@ -147,11 +149,11 @@ const RootQuery = new GraphQLObjectType({
         } catch (err) {
           console.log(err);
         }
-      }
-    }
-  }
+      },
+    },
+  },
 });
 
 module.exports = new GraphQLSchema({
-  query: RootQuery
+  query: RootQuery,
 });

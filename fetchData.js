@@ -16,6 +16,7 @@ const fetchTask = async (id) => {
     /* Filters out tasks that do not have 
        DE:Wun Standard | Estimate Task : Yes and do not have a roleID */
     return (
+      typeof task !== undefined &&
       task["DE:Wun Standard | Estimate Task"] &&
       task["DE:Wun Standard | Estimate Task"] === "Yes" &&
       task.roleID &&

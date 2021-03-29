@@ -4,23 +4,27 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev:server": "nodemon index.js",
-    "json:server": "json-server --ro -p 4001 -i ID -w ./mockApi/api.json"
+    "start": "nodemon src/index.js",
+    "run:server": "node src/index.js"
   },
-  "author": "Jeff Winegar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwinegar/wf-graphql-server.git"
+  },
+  "keywords": [],
+  "author": "Jeff Winegar <jeff.winegar@wundermanthompson.com>",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jwinegar/wf-graphql-server/issues"
+  },
+  "homepage": "https://github.com/jwinegar/wf-graphql-server#readme",
   "dependencies": {
-    "cors": "^2.8.5",
-    "dataloader": "^2.0.0",
+    "apollo-server": "^2.22.1",
     "dotenv": "^8.2.0",
-    "express": "^4.17.1",
-    "express-graphql": "^0.11.0",
-    "graphql": "^15.3.0",
+    "graphql": "^15.5.0",
     "node-fetch": "^2.6.1"
   },
   "devDependencies": {
-    "json-server": "^0.16.1",
-    "nodemon": "^2.0.4"
+    "nodemon": "^2.0.7"
   }
 }

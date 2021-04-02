@@ -9,8 +9,6 @@ class WorkfrontAPI extends RESTDataSource {
       'DE:Wun LA Program for Innocean HMA',
       'DE:Wun LA Program for Innocean GMA',
       'plannedCompletionDate',
-      'tasks',
-      'hours',
     ];
     this.taskFieldParams = [
       'projectID',
@@ -19,6 +17,7 @@ class WorkfrontAPI extends RESTDataSource {
       'DE:Wun Standard | Estimate Task',
       'workRequired',
     ];
+    this.hoursFieldParams = ['projectID', 'roleID', 'hours'];
   }
 
   willSendRequest(res) {
@@ -36,15 +35,34 @@ class WorkfrontAPI extends RESTDataSource {
         : proj['DE:Wun LA Program for Innocean GMA'] &&
           proj['DE:Wun LA Program for Innocean GMA'],
       tasks: async () => await this.getAllTasksByProjectID({ projID: proj.ID }),
-      hours: '',
+      hours: async () => await this.getAllHoursByProjectID({ projID: proj.ID }),
     };
   }
 
-  // TODO: set companyID as a variable
+  taskReducer(task) {
+    return {
+      id: task.ID,
+      role: task.name,
+      roleID: task.roleID,
+      projectID: task.projectID,
+      hoursScoped: task.workRequired ? task.workRequired / 60 : 0,
+    };
+  }
 
-  async getAllProjects() {
+  hoursReducer(hours) {
+    return {
+      id: hours.ID,
+      role: hours.name,
+      roleID: hours.roleID,
+      hoursLogged: Array.isArray(hours.hours)
+        ? hours.hours.reduce((acc, cur) => acc + cur, 0)
+        : hours.hours,
+    };
+  }
+
+  async getAllProjects({ companyID }) {
     const res = await this.get(`proj/search`, {
-      companyID: this.context.companyID,
+      companyID: companyID,
       status: 'CUR',
       plannedCompletionDate: '$$TODAY',
       plannedCompletionDate_Mod: 'gte',
@@ -67,20 +85,11 @@ class WorkfrontAPI extends RESTDataSource {
     return this.projectReducer(data);
   }
 
-  taskReducer(task) {
-    return {
-      id: task.ID,
-      role: task.name,
-      roleID: task.roleID,
-      projectID: task.projectID,
-      hoursScoped: task.workRequired ? task.workRequired / 60 : 0,
-    };
-  }
-
   async getAllTasksByProjectID({ projID }) {
     const res = await this.get(`task/search`, {
       projectID: projID,
       fields: this.taskFieldParams,
+      $$LIMIT: 2000,
     });
     const data = res.data;
 
@@ -98,6 +107,42 @@ class WorkfrontAPI extends RESTDataSource {
     });
 
     return filteredData.map((itm) => this.taskReducer(itm));
+  }
+
+  async getAllHoursByProjectID({ projID }) {
+    const res = await this.get(`hour/search`, {
+      projectID: projID,
+      fields: this.hoursFieldParams,
+      $$LIMIT: 2000,
+    });
+    const data = res.data;
+
+    /**
+     * Combines logged hours into an array of roles
+     * with total hoursLogged for each role
+     */
+    const seen = new Map();
+
+    const totalHoursLoggedByRole = data.filter((hours) => {
+      let prev;
+
+      if (seen.hasOwnProperty(hours.roleID)) {
+        prev = seen[hours.roleID];
+        prev.hours.push(hours.hours);
+
+        return false;
+      }
+
+      if (!Array.isArray(hours.hours)) {
+        hours.hours = [hours.hours];
+      }
+
+      seen[hours.roleID] = hours;
+
+      return true;
+    });
+
+    return totalHoursLoggedByRole;
   }
 }
 

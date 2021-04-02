@@ -8,7 +8,6 @@ const WorkfrontAPI = require('./datasources/workfront');
 require('dotenv').config({ path: path.resolve(__dirname, './.env') });
 
 const API_KEY = process.env.WF_API_KEY;
-const COMPANY_ID = process.env.WF_COMPANY_ID;
 
 const server = new ApolloServer({
   typeDefs,
@@ -19,7 +18,6 @@ const server = new ApolloServer({
   context: () => {
     return {
       token: API_KEY,
-      companyID: COMPANY_ID,
     };
   },
 });

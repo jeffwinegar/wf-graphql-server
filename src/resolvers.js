@@ -1,7 +1,7 @@
 module.exports = {
   Query: {
-    projects: async (_, __, { dataSources }) =>
-      dataSources.workfrontAPI.getAllProjects(),
+    projects: async (_, { cid }, { dataSources }) =>
+      dataSources.workfrontAPI.getAllProjects({ companyID: cid }),
     project: async (_, { id }, { dataSources }) =>
       dataSources.workfrontAPI.getProjectByID({ projID: id }),
   },
